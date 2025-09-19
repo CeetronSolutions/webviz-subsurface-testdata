@@ -455,12 +455,12 @@ layout:
                     "Water": 1.0
                     "Gas": 300.0
       # -------------------------------
-      - group: CO2 Leakage
+      - group: CO2 Migration
         icon: repeat
         content:
-          - page: CO2 Leakage
+          - page: CO2 Migration
             content:
-              - CO2Leakage:
+              - CO2Migration:
                   ensembles:
                     - co2
                   plume_mass_relpath: "share/results/tables/plume_mass.csv"
@@ -479,7 +479,7 @@ layout:
                     MIGRATION_TIME_SGAS: "migrationtime_sgas"
                     MIGRATION_TIME_AMFG: "migrationtime_amfg"
                     MASS: "co2-mass-total"
-                    DISSOLVED: "co2-mass-aqu-phase"
+                    DISSOLVED_WATER: "co2-mass-dissolved_water-phase"
                     FREE: "co2-mass-gas-phase"
 
       # -------------------------------

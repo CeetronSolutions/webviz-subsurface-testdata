@@ -1,5 +1,5 @@
 """
-This script generates data for the webviz subsurface plugin "CO2 Leakage". The data
+This script generates data for the webviz subsurface plugin "CO2 Migration". The data
 generation is done in an ad-hoc and pragmatic manner. The primary purpose is to adhere to
 the folder structure, file formats and naming conventions expected by the plugin.
 
@@ -179,7 +179,7 @@ def generate_maps(output_dir, surface_name, time_steps, init_mig_dist, **kwargs)
         )
         dissolved_co2_surf = array_to_xtgeo(template, amfg[t] * (1 - sgas[t]), 1e-8)
         dissolved_co2_surf.to_file(
-            output_dir / f"{surface_name}--co2-mass-aqu-phase--{t}.gri"
+            output_dir / f"{surface_name}--co2-mass-dissolved_water-phase--{t}.gri"
         )
 
     # Migration Time
@@ -230,18 +230,18 @@ def simulate_containment(
     hazardous = prop[poly_map_haz].sum()
 
     # Simulate fractions
-    aqu_contained = contained * gen.uniform(high=0.1)
-    gas_contained = contained - aqu_contained
-    aqu_outside = outside * gen.uniform(high=0.1)
-    gas_outside = outside - aqu_outside
-    aqu_hazardous = hazardous * gen.uniform(high=0.1)
-    gas_hazardous = hazardous - aqu_hazardous
+    diss_water_contained = contained * gen.uniform(high=0.1)
+    gas_contained = contained - diss_water_contained
+    diss_water_outside = outside * gen.uniform(high=0.1)
+    gas_outside = outside - diss_water_outside
+    diss_water_hazardous = hazardous * gen.uniform(high=0.1)
+    gas_hazardous = hazardous - diss_water_hazardous
     return (
-        aqu_contained,
+        diss_water_contained,
         gas_contained,
-        aqu_outside,
+        diss_water_outside,
         gas_outside,
-        aqu_hazardous,
+        diss_water_hazardous,
         gas_hazardous,
     )
 
@@ -287,7 +287,7 @@ def generate_date_table_entries(
         seed,
         calc_volume,
     )
-    phases = ["total", "gas", "aqueous"]
+    phases = ["total", "gas", "dissolved_water"]
     locations = ["total", "contained", "outside", "hazardous"]
     table_entries = {
         "date": [date] * len(phases) * len(locations),
@@ -316,16 +316,12 @@ def main(ens_root, input_folder, polygons_folder, base_seed):
     polys = read_polylines(
         res_root / "polygons" / "topvolantis--gl_faultlines_extract_postprocess.csv"
     )
-    containment_boundary = sg.Polygon(
-        np.genfromtxt(
-            input_folder / "containment--boundary.csv", skip_header=1, delimiter=","
-        )
-    )
-    hazardous_boundary = sg.Polygon(
-        np.genfromtxt(
-            input_folder / "hazardous--boundary.csv", skip_header=1, delimiter=","
-        )
-    )
+    containment_boundary_csv = pd.read_csv(input_folder / "containment--boundary.csv")
+    containment_coords = containment_boundary_csv.drop(columns=["POLY_ID"]).to_numpy()
+    containment_boundary = sg.Polygon(containment_coords)
+    hazardous_boundary_csv = pd.read_csv(input_folder / "hazardous--boundary.csv")
+    hazardous_coords = hazardous_boundary_csv.drop(columns=["POLY_ID"]).to_numpy()
+    hazardous_boundary = sg.Polygon(hazardous_coords)
     tmpl = xtgeo.RegularSurface(
         ncol=279, nrow=341, xinc=25.0, yinc=25.0, xori=460063.6875, yori=5929551.0
     )
@@ -337,10 +333,10 @@ def main(ens_root, input_folder, polygons_folder, base_seed):
         "toptherys": 70,
     }
     df_mass = pd.DataFrame(
-        {"date": [], "amount": [], "phase": [], "containment": [], "zone": []}
+        {"date": [], "amount": [], "phase": [], "containment": [], "zone": [], "plume_group": []}
     )
     df_volume = pd.DataFrame(
-        {"date": [], "amount": [], "phase": [], "containment": [], "zone": []}
+        {"date": [], "amount": [], "phase": [], "containment": [], "zone": [], "plume_group": []}
     )
     for sn, imd in mig_dists.items():
         sgas, amfg = generate_maps(
@@ -397,6 +393,7 @@ def format_and_save_csv(df: pd.DataFrame, file: str):
     df.replace(to_replace=["A_total"], value="total", inplace=True)
     #df["zone"] = ["all"] * df.shape[0]
     df["region"] = ["all"] * df.shape[0]
+    df["plume_group"] = ["all"] * df.shape[0]
     df.to_csv(file, index=False)
 
 
